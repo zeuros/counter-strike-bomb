@@ -25,4 +25,14 @@ void Messages::print(String s0, String s1)
     lcd->print(s1);
 }
 
+String Messages::fill(char character, int count)
+{
+    char ret[16];
+
+    for( int i = 0 ; i < 16 ; i++)
+        ret[i] = i < count ? character : ' ';
+
+    return String(ret);
+}
+
 

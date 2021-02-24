@@ -1,8 +1,7 @@
 #include <Arduino.h>
-
 #include <LiquidCrystal.h>
-
 #include <Button.h>
+#include <FastLED.h>
 
 #include "../include/buttonPresses.h"
 #include "../include/beep.h"
@@ -17,6 +16,7 @@
 #define ADD_TIME_BUTTON_PIN 6
 #define SUB_TIME_BUTTON_PIN 7
 #define DEFUSAL_KIT_PIN 8
+#define LED_STRIP_PIN 13
 
 /******** LCD setup ********/
 const int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 2;
@@ -32,9 +32,14 @@ unsigned long subTimePressStart = 0;
 bool leftButtonPress = false;
 bool rightButtonPress = false;
 
+/******** LED setup ********/
+#define LED_COUNT 8
+CRGB leds[LED_COUNT];
+
 /******** bomb setup ********/
 int mode = SETUP;
 unsigned long defusing_time = 0;
+unsigned long defuse_duration = 10000;
 unsigned long time_elapsed_since_countdown_started = 0;
 unsigned int bomb_duration_preset = 45;
 
@@ -69,21 +74,24 @@ void bombMode()
 
     if (both_buttons_pressed()) // defusing
     {
-        if (defusing_time < now)
-            defusing_time = now + 10*1e3 - (defusalKit.read() == Button::PRESSED ? 5000 : 0);
+        if ( defusing_time == 0 ) // executed first time only
+        {
+            defuse_duration = 10000 - (defusalKit.read() == Button::PRESSED ? 5000 : 0);
+            defusing_time = now + defuse_duration;
+        }
 
         delay(500);
         tone(SPEAKERS_PIN, 1200, 120);
         bomb_stop_time += 500;
         messages.print("**  DEFUSING  **",
-                       "      "+String(round((float)now / (float)(defusing_time - now)))+"%...   ");
+                       messages.fill('>', (int)round(16 * (float)(now - (defusing_time - defuse_duration)) / (float)(defuse_duration))));
 
-        if (now > defusing_time)
+        if (now >= defusing_time)
         {
             messages.print("**BOMB DEFUSED**",
                            "****************");
             delay(5000);
-            switchToSetupMode();
+            return switchToSetupMode();
         }
     }
     else if (time_elapsed_since_countdown_started > bomb_duration_preset * 1000) // boom
@@ -110,7 +118,7 @@ void bombMode()
         // accelerating beep
         time_elapsed_since_countdown_started = now - bomb_arm_time;
         accelerating_beep((float)(time_elapsed_since_countdown_started - bomb_stop_time) / (float)(bomb_duration_preset * 1000), next_beep_at);
-        defusing_time = 0;
+        // defusing_time = 0;
     }
 }
 
@@ -122,7 +130,14 @@ void setup()
 
     lcd.begin(16, 2);
 
-    messages.print( "Xx_Bombinator_xX",
+    FastLED.clear();
+    FastLED.addLeds<NEOPIXEL, LED_STRIP_PIN>(leds, LED_COUNT);
+    for( int i = 0 ; i < 8 ; i++ )
+        leds[i] = CRGB::Bisque;
+    FastLED.show();
+    FastLED.delay(500);
+
+    messages.print("Xx_Bombinator_xX",
                     "Reglez la duree");
 
     delay(3000);
