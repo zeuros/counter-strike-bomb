@@ -38,22 +38,22 @@ CRGB leds[LED_COUNT];
 
 /******** bomb setup ********/
 int mode = SETUP;
-unsigned long defusing_time = 0;
-unsigned long defuse_duration = 10000;
+unsigned long defuse_duration_preset = 10000;
 unsigned long time_elapsed_since_countdown_started = 0;
 unsigned int bomb_duration_preset = 45;
 
 /******** timers setup ********/
 unsigned long bomb_arm_time = 0;
-unsigned long bomb_stop_time = 0;
+unsigned long defusing_press_duration = 0;
+float defuse_progress = 0;
 unsigned long next_beep_at = 0;
 
 void resetBomb()
 {
     next_beep_at = 0;
-    bomb_stop_time = 0;
+    defusing_press_duration = 0;
+    defuse_progress = 0;
     bomb_arm_time = 0;
-    defusing_time = 0;
     time_elapsed_since_countdown_started = 0;
 }
 
@@ -74,19 +74,16 @@ void bombMode()
 
     if (both_buttons_pressed()) // defusing
     {
-        if ( defusing_time == 0 ) // executed first time only
-        {
-            defuse_duration = 10000 - (defusalKit.read() == Button::PRESSED ? 5000 : 0);
-            defusing_time = now + defuse_duration;
-        }
+        delay(400);
+        defusing_press_duration += 400;
 
-        delay(500);
-        tone(SPEAKERS_PIN, 1200, 120);
-        bomb_stop_time += 500;
+        defuse_duration_preset = 10000 - (defusalKit.read() == Button::PRESSED ? 5000 : 0);
+        defuse_progress = (float)defusing_press_duration / (float)(defuse_duration_preset);
+        tone(SPEAKERS_PIN, (unsigned int)(1200 + 1000 * defuse_progress), 120);
         messages.print("**  DEFUSING  **",
-                       messages.fill('>', (int)round(16 * (float)(now - (defusing_time - defuse_duration)) / (float)(defuse_duration))));
+                       messages.fill('>', (int)round(16 * defuse_progress)));
 
-        if (now >= defusing_time)
+        if ( defuse_progress >= 1 )
         {
             messages.print("**BOMB DEFUSED**",
                            "****************");
@@ -117,8 +114,7 @@ void bombMode()
     {
         // accelerating beep
         time_elapsed_since_countdown_started = now - bomb_arm_time;
-        accelerating_beep((float)(time_elapsed_since_countdown_started - bomb_stop_time) / (float)(bomb_duration_preset * 1000), next_beep_at);
-        // defusing_time = 0;
+        accelerating_beep((float)(time_elapsed_since_countdown_started - defusing_press_duration) / (float)(bomb_duration_preset * 1000), next_beep_at);
     }
 }
 
@@ -159,6 +155,7 @@ void setupMode() {
         mode = BOMB_STARTED;
         messages.print("***MAINTENEZ****",
                        "*POUR DESARMER**");
+        delay(1500);
     }
     else if (leftButtonPress || rightButtonPress)
     {
