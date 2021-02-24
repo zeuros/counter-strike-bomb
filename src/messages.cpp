@@ -8,15 +8,6 @@ Messages::Messages(LiquidCrystal& lcd)
     this->lcd = &lcd;
 }
 
-void Messages::welcome()
-{
-    lcd->begin(16, 2);
-    lcd->setCursor(0, 0);
-    lcd->print("Xx_Bombinator_xX");
-    lcd->setCursor(0, 1);
-    lcd->print("Reglez la duree");
-}
-
 void Messages::bomb_will_boom_in(unsigned int bomb_duration_preset)
 {
     lcd->clear();
@@ -26,13 +17,12 @@ void Messages::bomb_will_boom_in(unsigned int bomb_duration_preset)
     lcd->print("dans " + String(bomb_duration_preset) + "s");
 }
 
-void Messages::hold_buttons_to_defuse()
+void Messages::print(String s0, String s1)
 {
-    lcd->clear();
     lcd->setCursor(0, 0);
-    lcd->print("***MAINTENEZ****");
+    lcd->print(s0);
     lcd->setCursor(0, 1);
-    lcd->print("*POUR DESARMER**");
+    lcd->print(s1);
 }
 
 
