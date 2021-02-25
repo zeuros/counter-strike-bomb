@@ -1,3 +1,7 @@
+.pio
+.vscode
+*.code-workspace
+
 # Prerequisites
 *.d
 
