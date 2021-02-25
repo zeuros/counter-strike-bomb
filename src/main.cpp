@@ -117,22 +117,6 @@ void bombMode()
     }
 }
 
-void setup()
-{
-    addTimeBtn.begin();
-    subTime.begin();
-    defusalKit.begin();
-
-    lcd.begin(16, 2);
-
-    messages.print("Xx_Bombinator_xX",
-                    "Reglez la duree");
-
-    delay(3000);
-
-    switchToSetupMode();
-}
-
 void setupMode() {
 
     delay(50);// Let time to press both buttons
@@ -165,6 +149,22 @@ void setupMode() {
 
         messages.bomb_will_boom_in(bomb_duration_preset);
     }
+}
+
+void setup()
+{
+    addTimeBtn.begin();
+    subTime.begin();
+    defusalKit.begin();
+
+    lcd.begin(16, 2);
+
+    messages.print("Xx_Bombinator_xX",
+                    "Reglez la duree");
+
+    delay(3000);
+
+    switchToSetupMode();
 }
 
 void loop() {
