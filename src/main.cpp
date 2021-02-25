@@ -84,7 +84,7 @@ void bombMode()
 
         if ( defuse_progress >= 1 )
         {
-            messages.print("**BOMB DEFUSED**",
+            messages.print("**BOMB BITE**",
                            "****************");
             delay(5000);
             return switchToSetupMode();
