@@ -79,27 +79,30 @@ void bombMode()
         defuse_duration_preset = 10000 - (defusalKit.read() == Button::PRESSED ? 5000 : 0);
         defuse_progress = (float)defusing_press_duration / (float)(defuse_duration_preset);
         tone(SPEAKERS_PIN, (unsigned int)(1200 + 1000 * defuse_progress), 120);
-        messages.print("**  DEFUSING  **",
+        messages.print("* DESAMORCAGE *",
                        messages.fill('>', (int)round(16 * defuse_progress)));
 
         if ( defuse_progress >= 1 )
         {
-            messages.print("**BOMB BITE**",
+            messages.print("BOMBE DESAMORCEE",
                            "****************");
             delay(5000);
             return switchToSetupMode();
         }
     }
-    else if (time_elapsed_since_countdown_started > bomb_duration_preset * 1000) // boom
+    else if (time_elapsed_since_countdown_started > bomb_duration_preset * 1000) // temps écoulé : boom
     {
         messages.print("****************",
                        "****************");
+
+        // bidibidibi
         for (int i = 0; i < 15; i++)
         { // beep every 90ms 1 times
             tone(SPEAKERS_PIN, 4023, 25);
             delay(65);
         }
 
+        // brrrrrrrr
         messages.print("*terrorists win*",
                        "****************");
         for (int i = 0; i < 5000; i++)
@@ -107,6 +110,7 @@ void bombMode()
             tone(SPEAKERS_PIN, random(60, 360), 2);
             delay(2);
         }
+        delay(5000);
         switchToSetupMode();
     }
     else
