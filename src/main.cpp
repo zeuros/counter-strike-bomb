@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include <LiquidCrystal.h>
 #include <Button.h>
-#include <FastLED.h>
 
 #include "../include/buttonPresses.h"
 #include "../include/beep.h"
@@ -125,13 +124,6 @@ void setup()
     defusalKit.begin();
 
     lcd.begin(16, 2);
-
-    FastLED.clear();
-    FastLED.addLeds<NEOPIXEL, LED_STRIP_PIN>(leds, LED_COUNT);
-    for( int i = 0 ; i < 8 ; i++ )
-        leds[i] = CRGB::Bisque;
-    FastLED.show();
-    FastLED.delay(500);
 
     messages.print("Xx_Bombinator_xX",
                     "Reglez la duree");
