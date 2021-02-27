@@ -1,4 +1,3 @@
-#define DEBOUNCE_TIME 60
-#define LONG_PRESS_DELAY 800
+#include "constants.h"
 
 bool manageButtonPressAndLongPress(Button &button, unsigned long &timePressStart);

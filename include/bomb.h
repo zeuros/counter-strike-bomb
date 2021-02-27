@@ -1,0 +1,2 @@
+
+float beep_per_second(float time_elapsed_since_bomb_started_pu);

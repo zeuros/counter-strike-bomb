@@ -2,20 +2,11 @@
 #include <LiquidCrystal.h>
 #include <Button.h>
 
+#include "../include/constants.h"
 #include "../include/buttonPresses.h"
 #include "../include/beep.h"
 #include "../include/messages.h"
-
-/******** some constants (to move) ********/
-#define SETUP 0
-#define BOMB_STARTED 1
-#define DEFUSING 2
-
-/******** pins definitions ********/
-#define ADD_TIME_BUTTON_PIN 6
-#define SUB_TIME_BUTTON_PIN 7
-#define DEFUSAL_KIT_PIN 8
-#define LED_STRIP_PIN 13
+#include "../include/bomb.h"
 
 /******** LCD setup ********/
 const int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 2;
@@ -24,21 +15,16 @@ Messages messages(lcd);
 
 /******** Buttons setup: Connect your button between pins and GND ********/
 Button addTimeBtn(ADD_TIME_BUTTON_PIN, DEBOUNCE_TIME); // Add time to bomb
-Button subTime(SUB_TIME_BUTTON_PIN, DEBOUNCE_TIME);    // Substract time to bomb delay
-Button defusalKit(DEFUSAL_KIT_PIN, DEBOUNCE_TIME);        // Substract time to bomb delay
+Button subTime(SUB_TIME_BUTTON_PIN, DEBOUNCE_TIME); // Substract time to bomb delay
+Button defusalKit(DEFUSAL_KIT_PIN, DEBOUNCE_TIME);
 unsigned long addTimePressStart = 0;
 unsigned long subTimePressStart = 0;
 bool leftButtonPress = false;
 bool rightButtonPress = false;
 
-/******** LED setup ********/
-#define LED_COUNT 8
-CRGB leds[LED_COUNT];
-
 /******** bomb setup ********/
-int mode = SETUP;
+int bombMode = SETUP;
 unsigned long defuse_duration_preset = 10000;
-unsigned long time_elapsed_since_countdown_started = 0;
 unsigned int bomb_duration_preset = 45;
 
 /******** timers setup ********/
@@ -47,31 +33,48 @@ unsigned long defusing_press_duration = 0;
 float defuse_progress = 0;
 unsigned long next_beep_at = 0;
 
+/******** led setup ********/
+unsigned long led_hide_at = 0;
+
+bool both_buttons_pressed() { return manageButtonPressAndLongPress(addTimeBtn, addTimePressStart) && manageButtonPressAndLongPress(subTime, subTimePressStart); }
+
 void resetBomb()
 {
     next_beep_at = 0;
     defusing_press_duration = 0;
     defuse_progress = 0;
     bomb_arm_time = 0;
-    time_elapsed_since_countdown_started = 0;
 }
 
-void switchToSetupMode()
+void readyToStartMode() {
+    messages.bomb_ready_to_start(bomb_duration_preset);
+    bombMode = READY_TO_START;
+}
+
+void bombReadyToStart(int &bombMode, unsigned long &arm_time)
 {
-    resetBomb();
-
-    // show mode
-    mode = SETUP;
-    messages.bomb_will_boom_in(bomb_duration_preset);
+    if (both_buttons_pressed()) {
+        bombMode = BOMB_STARTED;
+        arm_time = millis();
+    }
 }
 
-bool both_buttons_pressed() { return manageButtonPressAndLongPress(addTimeBtn, addTimePressStart) && manageButtonPressAndLongPress(subTime, subTimePressStart); }
+/**
+ * Triggered when bomb exploded or defused
+ */
+void bombFinished()
+{
+    delay(5000);// Once bomb finished, wait some time before restart
+    resetBomb();
+    readyToStartMode();
+}
 
-void bombMode()
+void bomb_countdown()
 {
     unsigned long now = millis();
+    unsigned long time_elapsed_since_countdown_started = now - bomb_arm_time;
 
-    if (both_buttons_pressed()) // defusing
+    if ( both_buttons_pressed() ) // L+R buttons are maintained: defusing
     {
         delay(400);
         defusing_press_duration += 400;
@@ -79,7 +82,7 @@ void bombMode()
         defuse_duration_preset = 10000 - (defusalKit.read() == Button::PRESSED ? 5000 : 0);
         defuse_progress = (float)defusing_press_duration / (float)(defuse_duration_preset);
         tone(SPEAKERS_PIN, (unsigned int)(1200 + 1000 * defuse_progress), 120);
-        messages.print("* DESAMORCAGE *",
+        messages.print("DESAMORCAGE ... ",
                        messages.fill('>', (int)round(16 * defuse_progress)));
 
         if ( defuse_progress >= 1 )
@@ -87,7 +90,8 @@ void bombMode()
             messages.print("BOMBE DESAMORCEE",
                            "****************");
             delay(5000);
-            return switchToSetupMode();
+
+            bombFinished();
         }
     }
     else if (time_elapsed_since_countdown_started > bomb_duration_preset * 1000) // temps écoulé : boom
@@ -95,14 +99,14 @@ void bombMode()
         messages.print("****************",
                        "****************");
 
-        // bidibidibi
+        // bidibidibi (just before)
         for (int i = 0; i < 15; i++)
         { // beep every 90ms 1 times
             tone(SPEAKERS_PIN, 4023, 25);
             delay(65);
         }
 
-        // brrrrrrrr
+        // brrrrrrrr sound
         messages.print("*terrorists win*",
                        "****************");
         for (int i = 0; i < 5000; i++)
@@ -110,15 +114,28 @@ void bombMode()
             tone(SPEAKERS_PIN, random(60, 360), 2);
             delay(2);
         }
-        delay(5000);
-        switchToSetupMode();
+
+        bombFinished();
+    } else { // countdown just going down, nothing else, we display it !
+        defusing_press_duration = 0;
+        messages.print("**Bombe amorcee*",
+                        "  restant: " + String((int)round((bomb_duration_preset * 1000 - time_elapsed_since_countdown_started) / 1000)) + "s");
     }
-    else
-    {
-        // accelerating beep
-        time_elapsed_since_countdown_started = now - bomb_arm_time;
-        accelerating_beep((float)(time_elapsed_since_countdown_started - defusing_press_duration) / (float)(bomb_duration_preset * 1000), next_beep_at);
+    
+    // accelerating beep
+    if ( now > next_beep_at ) {
+        float time_elapsed_since_bomb_started_pu = (float)time_elapsed_since_countdown_started / (float)(bomb_duration_preset * 1000);
+        
+        bomb_beep();
+
+        digitalWrite(LED_PIN, HIGH);
+        led_hide_at = now + 100;
+
+        next_beep_at = now + 1000 * (1 / beep_per_second(time_elapsed_since_bomb_started_pu));
     }
+    // blinks led if necessary
+    if ( now > led_hide_at )
+        digitalWrite(LED_PIN, LOW);
 }
 
 void setupMode() {
@@ -131,11 +148,7 @@ void setupMode() {
 
     if (leftButtonPress && rightButtonPress) // valid timer, switch to bomb mode
     {
-        bomb_arm_time = millis();
-        mode = BOMB_STARTED;
-        messages.print("***MAINTENEZ****",
-                       "*POUR DESARMER**");
-        delay(1500);
+        readyToStartMode();
     }
     else if (leftButtonPress || rightButtonPress)
     {
@@ -151,7 +164,7 @@ void setupMode() {
             tone(SPEAKERS_PIN, 1000, 120);
         }
 
-        messages.bomb_will_boom_in(bomb_duration_preset);
+        messages.bomb_setup_time(bomb_duration_preset);
     }
 }
 
@@ -161,6 +174,8 @@ void setup()
     subTime.begin();
     defusalKit.begin();
 
+    pinMode(LED_PIN, OUTPUT);
+
     lcd.begin(16, 2);
 
     messages.print("Xx_Bombinator_xX",
@@ -168,17 +183,26 @@ void setup()
 
     delay(3000);
 
-    switchToSetupMode();
+    bombMode = SETUP;
 }
 
 void loop() {
 
-    if ( mode == SETUP ) {
-        // time choose
-        setupMode();
-    } else if ( mode == BOMB_STARTED ) {
-        // accelerating beep, possibility to stop holding side butts
-        bombMode();
+    switch (bombMode)
+    {
+        case SETUP:
+            // ONLY AT STARTUP: Game Master chooses bomb duration
+            setupMode();
+            break;
+
+        case READY_TO_START:
+            // wait for terrorists to start the bomb (pressing L+R)
+            bombReadyToStart(bombMode, bomb_arm_time);
+            break;
+
+        case BOMB_STARTED:
+            // accelerating beep, possibility to stop holding side butts
+            bomb_countdown();
+            break;
     }
-        
 }
